@@ -32,14 +32,25 @@ try {
     exit 1
 }
 
+function Format-Upcoming([string]$label, $entries) {
+    if (-not $entries -or $entries.Count -eq 0) {
+        return "$label`: none currently listed"
+    }
+    $rows = $entries | ForEach-Object { "  - $($_.saleName) - closes $($_.closeLocal) ($($_.count) lot(s))" }
+    return "$label`:`n" + ($rows -join "`n")
+}
+
+$upcomingBlock = (Format-Upcoming "Upcoming Model Y auctions" $data.upcoming.model_y) + "`n`n" + (Format-Upcoming "Upcoming SEALION 7 auctions" $data.upcoming.sealion_7)
+
 if ($data.hits.Count -gt 0) {
     $lines = $data.hits | ForEach-Object {
         "$($_.year) $($_.make) $($_.model) - min bid `$$($_.minimumBid) (current minimum bid, not a hammer price) - $($_.suburb), $($_.state)`n$($_.url)"
     }
-    $body = $lines -join "`n`n"
+    $body = ($lines -join "`n`n") + "`n`n---`n`n" + $upcomingBlock
     & "$scriptDir\send_email.ps1" -Subject "Auction Watch: $($data.hits.Count) NAT sale hit(s) found" -Body $body
 } else {
     $close = $data.nat.current_instance.closeLocal
     if (-not $close) { $close = "unknown (no current NAT instance found)" }
-    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: NAT check - no hits" -Body "No qualifying lots this run. Sale closes $close"
+    $body = "No qualifying lots this run. Sale closes $close`n`n---`n`n" + $upcomingBlock
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: NAT check - no hits" -Body $body
 }
