@@ -49,6 +49,7 @@ def summarize(p: dict) -> dict:
         "shortDescription": p.get("shortDescription"),
         "buyNowPrice": p.get("buyNowPrice"),
         "buyMethod": p.get("buyMethod"),
+        "salvage": p.get("salvage"),
         "saleName": (sale.get("name") or "").strip(),
         "suburb": loc.get("suburb"),
         "state": loc.get("state"),
@@ -66,6 +67,8 @@ def main() -> None:
         html = client.fetch_html(target["path"])
         for p in client.extract_products(html):
             lot = summarize(p)
+            if lot["salvage"] == "Salvage":
+                continue
             if lot["year"] not in target["years"]:
                 continue
             price = lot["buyNowPrice"]

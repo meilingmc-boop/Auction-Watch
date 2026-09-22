@@ -66,6 +66,7 @@ def summarize(p: dict) -> dict:
         "shortDescription": p.get("shortDescription"),
         "minimumBid": p.get("minimumBid"),
         "buyMethod": p.get("buyMethod"),
+        "salvage": p.get("salvage"),
         "saleName": (sale.get("name") or "").strip(),
         "saleId": sale.get("saleId"),
         "closeUtc": p.get("productBidEnd"),
@@ -110,6 +111,8 @@ def main() -> None:
     hits = []
     for target in TARGETS:
         for lot in all_by_target[target["key"]]:
+            if lot["salvage"] == "Salvage":
+                continue
             if lot["saleName"] != NAT_SALE_NAME:
                 continue
             if target["year"] is not None and lot["year"] != target["year"]:
@@ -133,6 +136,8 @@ def main() -> None:
     def upcoming_for(key: str) -> list[dict]:
         by_sale: dict[str, dict] = {}
         for lot in all_by_target[key]:
+            if lot["salvage"] == "Salvage":
+                continue
             sid = lot["saleId"]
             if sid is None:
                 continue
