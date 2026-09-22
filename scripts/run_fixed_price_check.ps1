@@ -1,8 +1,8 @@
 <#
 Task Scheduler entry point for the daily fixed-price check. Runs
-fixed_price_check.py, parses its JSON, and raises a native toast
-notification per qualifying hit. Silent (log-only) when there are no hits,
-matching the "routine, don't notify" behavior used elsewhere.
+fixed_price_check.py, parses its JSON, and emails a summary of qualifying
+hits. Silent (log-only) when there are no hits, matching the "routine,
+don't notify" behavior used elsewhere.
 Logs each run to logs\fixed_price_check.log.
 #>
 $ErrorActionPreference = "Stop"
@@ -29,13 +29,14 @@ Add-Content -Path $logFile -Value $output
 try {
     $data = $output | ConvertFrom-Json
 } catch {
-    & "$scriptDir\toast.ps1" -Title "Fixed-price check failed" -Message "fixed_price_check.py did not return valid JSON - see logs\fixed_price_check.log"
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: fixed-price check failed" -Body "fixed_price_check.py did not return valid JSON - see logs\fixed_price_check.log`n`n$output"
     exit 1
 }
 
 if ($data.hits.Count -gt 0) {
-    foreach ($hit in $data.hits) {
-        $msg = "$($hit.year) $($hit.make) $($hit.model) - Buy Now `$$($hit.buyNowPrice) - $($hit.suburb), $($hit.state)"
-        & "$scriptDir\toast.ps1" -Title "Fixed-price hit found" -Message $msg
+    $lines = $data.hits | ForEach-Object {
+        "$($_.year) $($_.make) $($_.model) - Buy Now `$$($_.buyNowPrice) - $($_.suburb), $($_.state)`n$($_.url)"
     }
+    $body = $lines -join "`n`n"
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: $($data.hits.Count) fixed-price hit(s) found" -Body $body
 }

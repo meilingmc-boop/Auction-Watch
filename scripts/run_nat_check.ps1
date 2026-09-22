@@ -1,7 +1,7 @@
 <#
 Task Scheduler entry point for the NAT sale check. Runs nat_check.py,
-parses its JSON, and raises a native toast notification - either per
-qualifying hit, or a "no hits, sale closes at X" status if none found.
+parses its JSON, and emails a summary - either the qualifying hits, or a
+"no hits, sale closes at X" status if none found.
 Logs each run to logs\nat_check.log for later inspection.
 #>
 $ErrorActionPreference = "Stop"
@@ -28,17 +28,18 @@ Add-Content -Path $logFile -Value $output
 try {
     $data = $output | ConvertFrom-Json
 } catch {
-    & "$scriptDir\toast.ps1" -Title "NAT check failed" -Message "nat_check.py did not return valid JSON - see logs\nat_check.log"
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: NAT check failed" -Body "nat_check.py did not return valid JSON - see logs\nat_check.log`n`n$output"
     exit 1
 }
 
 if ($data.hits.Count -gt 0) {
-    foreach ($hit in $data.hits) {
-        $msg = "$($hit.year) $($hit.make) $($hit.model) - min bid `$$($hit.minimumBid) - $($hit.suburb), $($hit.state)"
-        & "$scriptDir\toast.ps1" -Title "NAT sale hit found" -Message $msg
+    $lines = $data.hits | ForEach-Object {
+        "$($_.year) $($_.make) $($_.model) - min bid `$$($_.minimumBid) (current minimum bid, not a hammer price) - $($_.suburb), $($_.state)`n$($_.url)"
     }
+    $body = $lines -join "`n`n"
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: $($data.hits.Count) NAT sale hit(s) found" -Body $body
 } else {
     $close = $data.nat.current_instance.closeLocal
     if (-not $close) { $close = "unknown (no current NAT instance found)" }
-    & "$scriptDir\toast.ps1" -Title "NAT check: no hits" -Message "No qualifying lots this run. Sale closes $close"
+    & "$scriptDir\send_email.ps1" -Subject "Auction Watch: NAT check - no hits" -Body "No qualifying lots this run. Sale closes $close"
 }
